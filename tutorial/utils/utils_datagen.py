@@ -89,6 +89,11 @@ def generate_centroids(
     margin = float(particle_radius) if particle_radius is not None else 0.0
     min_distance = 2 * margin if particle_radius is not None else 0.0
 
+    # Diffraction-limited particles cannot be placed too close to edges and each other
+    if particle_radius is not None and particle_radius < 1.0:
+        margin = max(5.0, margin)
+        min_distance = max(5.0, min_distance)
+
     # Sample positions
     if particle_radius is None:
         # No-overlap: simple uniform sampling
@@ -316,7 +321,6 @@ def transform_to_video(
         >> dt.Background(_background_dict["background_mean"])
         >> dt.Poisson(snr=_background_dict["poisson_snr"])
         >> sequential_background
-        # >> dt.NormalizeMinMax()
     )
 
     if trajs.shape[1] > 1:
@@ -332,6 +336,11 @@ def transform_to_video(
     else:
         _video = sample.update().resolve()
     
+    if save_video:
+        if not path:
+            raise ValueError("Path must be provided to save the video.")
+        np.save(path, _video)
+
     return _video#.__abs__() # Ensure real-valued field.
 
 
@@ -525,7 +534,7 @@ def generate_particle_dataset(
         max_axis_shell = np.max(shell_radius)
         max_axis_particle = np.max(particle_radius)
         
-        # Extract minimum radius in pixel units.
+        # Extract maximum radius in nanometers.
         total_particle_radius = np.maximum(
             max_axis_particle, 
             max_axis_shell
